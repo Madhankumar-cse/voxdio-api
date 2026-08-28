@@ -7,4 +7,5 @@ torchaudio
 librosa
 numpy
 soundfile
+ffmpeg-python
 reportlab
