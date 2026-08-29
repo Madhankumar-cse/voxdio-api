@@ -17,7 +17,13 @@ app.add_middleware(
 )
 
 # Whisper model (small)
-model = whisper.load_model("base")
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        model = whisper.load_model("tiny")
+    return model
 
 @app.get("/")
 def home():
