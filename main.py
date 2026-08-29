@@ -38,7 +38,7 @@ async def analyze(file: UploadFile = File(...)):
         temp_path = tmp.name
 
     # Whisper Transcript
-    result = model.transcribe(temp_path)
+    result = get_model().transcribe(temp_path)
     transcript = result["text"]
 
     # Audio Features
