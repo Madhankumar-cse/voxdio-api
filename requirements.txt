@@ -1,9 +1,6 @@
 fastapi
 uvicorn
 python-multipart
-openai-whisper
-torch
-torchaudio
 librosa
 numpy
 soundfile
