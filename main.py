@@ -12,7 +12,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 
 app = FastAPI(title="Voxdio AI API")
 
-# CORS (Vercel frontend connect panna)
+# Allow Vercel frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,7 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Lazy Loading (Render Free RAM save)
+# Lazy loading (Render Free RAM save)
 model = None
 
 def get_model():
@@ -39,6 +39,9 @@ def home():
     }
 
 
+# ===========================
+# Analyze API
+# ===========================
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
     suffix = os.path.splitext(file.filename)[1]
@@ -47,17 +50,27 @@ async def analyze(file: UploadFile = File(...)):
         tmp.write(await file.read())
         temp_path = tmp.name
 
-    # Whisper Transcript
-    result = get_model().transcribe(temp_path)
-    transcript = result["text"]
+    # Default transcript
+    transcript = "Whisper unavailable on Render Free."
 
-    # Audio Features
+    # Whisper try (fail aana continue)
+    try:
+        result = get_model().transcribe(temp_path)
+        transcript = result["text"]
+    except Exception:
+        pass
+
+    # Audio features
     y, sr = librosa.load(temp_path, sr=16000)
 
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
 
     energy = float(np.mean(np.abs(y)))
-    pitch = float(np.mean(librosa.yin(y, fmin=80, fmax=400)))
+
+    try:
+        pitch = float(np.mean(librosa.yin(y, fmin=80, fmax=400)))
+    except Exception:
+        pitch = 150.0
 
     score = int(min(max((energy * 4000 + pitch / 8), 0), 99))
 
@@ -80,6 +93,9 @@ async def analyze(file: UploadFile = File(...)):
     }
 
 
+# ===========================
+# PDF Report API
+# ===========================
 @app.post("/generate-report")
 async def generate_report(file: UploadFile = File(...)):
     suffix = os.path.splitext(file.filename)[1]
@@ -88,15 +104,22 @@ async def generate_report(file: UploadFile = File(...)):
         tmp.write(await file.read())
         temp_audio = tmp.name
 
-    # Whisper Transcript
-    result = get_model().transcribe(temp_audio)
-    transcript = result["text"]
+    transcript = "Whisper unavailable on Render Free."
 
-    # Audio Analysis
+    try:
+        result = get_model().transcribe(temp_audio)
+        transcript = result["text"]
+    except Exception:
+        pass
+
     y, sr = librosa.load(temp_audio, sr=16000)
 
     energy = float(np.mean(np.abs(y)))
-    pitch = float(np.mean(librosa.yin(y, fmin=80, fmax=400)))
+
+    try:
+        pitch = float(np.mean(librosa.yin(y, fmin=80, fmax=400)))
+    except Exception:
+        pitch = 150.0
 
     score = int(min(max((energy * 4000 + pitch / 8), 0), 99))
 
@@ -107,7 +130,6 @@ async def generate_report(file: UploadFile = File(...)):
     else:
         label = "AI Clone"
 
-    # PDF Create
     pdf_path = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf").name
 
     doc = SimpleDocTemplate(pdf_path)
@@ -120,30 +142,30 @@ async def generate_report(file: UploadFile = File(...)):
             styles["Title"],
         )
     )
-    story.append(Spacer(1, 20))
 
+    story.append(Spacer(1, 20))
     story.append(Paragraph(f"<b>File:</b> {file.filename}", styles["BodyText"]))
     story.append(Paragraph(f"<b>Classification:</b> {label}", styles["BodyText"]))
     story.append(Paragraph(f"<b>Risk Score:</b> {score}%", styles["BodyText"]))
     story.append(Paragraph("<b>Confidence:</b> 98%", styles["BodyText"]))
-    story.append(Spacer(1, 20))
 
+    story.append(Spacer(1, 20))
     story.append(Paragraph("<b>Transcript</b>", styles["Heading2"]))
     story.append(Paragraph(transcript, styles["BodyText"]))
-    story.append(Spacer(1, 20))
 
+    story.append(Spacer(1, 20))
     story.append(Paragraph("<b>Recommendation</b>", styles["Heading2"]))
 
     if label == "Human Voice":
-        recommendation = "Voice appears authentic. Continue with normal verification."
+        rec = "Voice appears authentic."
     elif label == "AI Voice":
-        recommendation = "Additional verification is recommended before approving sensitive actions."
+        rec = "Additional verification is recommended."
     else:
-        recommendation = "High-risk AI Clone detected. Do not approve financial transactions. Verify through an official callback."
+        rec = "High-risk AI Clone detected. Verify through an official callback."
 
-    story.append(Paragraph(recommendation, styles["BodyText"]))
+    story.append(Paragraph(rec, styles["BodyText"]))
+
     story.append(Spacer(1, 30))
-
     story.append(Paragraph("<b>Verified by Voxdio AI</b>", styles["Heading2"]))
     story.append(Paragraph("Digital Signature: VERIFIED", styles["BodyText"]))
 
