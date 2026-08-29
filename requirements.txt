@@ -6,3 +6,5 @@ numpy
 soundfile
 ffmpeg-python
 reportlab
+qrcode
+pillow
